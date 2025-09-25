@@ -69,14 +69,28 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Create controller instance
             controller = ikea_led_obegraensad_python_control.setup(host)
             
-            # Test connection by getting device info
+            # Test connection by getting device info with timeout
             info = await self.hass.async_add_executor_job(controller.get_info)
             
-            if not info:
+            if not info or not isinstance(info, dict):
+                _LOGGER.warning("Device at %s returned invalid info: %s", host, info)
+                raise CannotConnect
+            
+            # Verify we have expected fields in the response
+            required_fields = ["brightness"]  # Minimum required field
+            if not any(field in info for field in required_fields):
+                _LOGGER.warning("Device at %s returned unexpected info format: %s", host, info)
                 raise CannotConnect
                 
+            _LOGGER.info("Successfully connected to IKEA LED device at %s", host)
             return True
             
+        except ConnectionError as ex:
+            _LOGGER.error("Network connection failed for device at %s: %s", host, ex)
+            raise CannotConnect from ex
+        except TimeoutError as ex:
+            _LOGGER.error("Connection timeout for device at %s: %s", host, ex)
+            raise CannotConnect from ex
         except Exception as ex:
             _LOGGER.exception("Error connecting to IKEA LED device at %s", host)
             raise CannotConnect from ex
