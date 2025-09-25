@@ -1,153 +1,276 @@
 # IKEA OBEGRÄNSAD LED Control
 
-Python Package and Home Assistant Integration to control the modified IKEA OBEGRÄNSAD LED wall lamp.
+⚠️⚠️ **Warning: This integration is in active development and may not yet support all features or devices. Use at your own risk.** ⚠️⚠️
 
-This project provides:
-1. **Python Library** - Direct control of the LED device from Python applications
-2. **Home Assistant HACS Integration** - Full Home Assistant integration with lights, sensors, buttons, and selects
+_Note: This only works with modified IKEA OBEGRÄNSAD LED panels that use [this request](TODO) or later of the [IKEA OBEGRÄNSAD Hack/Mod
+](https://github.com/ph1p/ikea-led-obegraensad) by [@ph1p](https://github.com/ph1p)_
 
-## Hardware Requirements
+A Home Assistant custom integration for controlling IKEA OBEGRÄNSAD LED displays via local network communication. This integration provides real-time control and monitoring of your modified IKEA OBEGRÄNSAD LED panel through WebSocket connections.
 
-You need a modified IKEA OBEGRÄNSAD LED wall lamp with ESP32 running the custom firmware from [ph1p/ikea-led-obegraensad](https://github.com/ph1p/ikea-led-obegraensad).
+## Overview
 
-## Python Library Usage
+The IKEA OBEGRÄNSAD LED Control integration enables seamless integration of modified IKEA OBEGRÄNSAD LED panels with Home Assistant. It communicates directly with the device over your local network using HTTP API calls and WebSocket connections for real-time updates.
 
-### Installation
+### Features
 
-```bash
-pip install ikea-led-obegraensad-python-control
-```
+- **Real-time Control**: Instant brightness adjustments and plugin switching
+- **WebSocket Integration**: Live updates without polling delays
+- **Multiple Entity Types**: Light, sensors, selects, and buttons
+- **Device Management**: Plugin selection and rotation control
+- **Schedule Monitoring**: Track active schedules and their status
+- **Local Communication**: No cloud dependency, works entirely on your local network
 
-### Basic Usage
+## Supported Entities
 
-```python
-import ikea_led_obegraensad_python_control
+This integration creates the following entities in Home Assistant:
 
-# Connect to your device
-light = ikea_led_obegraensad_python_control.setup("192.168.1.100")
+### Light Entity
 
-# Control the light
-light.turn_on()
-light.set_brightness(128)
-light.set_plugin(5)
-light.set_rotation("left")
+- **IKEA OBEGRÄNSAD LED Light**: Main light control with brightness adjustment
+  - Supports transitions
+  - Brightness control (0-255)
+  - On/Off state management
 
-# Get device information
-info = light.get_info()
-print(f"Current brightness: {info['brightness']}")
-print(f"Active plugin: {info['plugin']}")
-```
+### Sensor Entities
 
-### Available Methods
+- **Rotation Sensor**: Current rotation angle of the display
+- **Active Plugin Sensor**: Currently selected plugin/effect
+- **Schedule Status Sensor**: Whether a schedule is currently active
+- **Brightness Sensor**: Current brightness level as a sensor
 
-- `turn_on()` - Turn on the LED display
-- `turn_off()` - Turn off the LED display  
-- `set_brightness(value)` - Set brightness (0-255)
-- `set_plugin(plugin_id)` - Set active plugin
-- `set_rotation(direction)` - Rotate display ("left" or "right")
-- `get_info()` - Get current device state
-- `get_brightness()` - Get current brightness
-- `get_rotation()` - Get current rotation
-- `get_active_plugin()` - Get active plugin ID
-- `get_available_plugins()` - Get list of available plugins
-- `get_schedule_state()` - Get schedule status
-- `get_schedule()` - Get current schedule
+### Select Entity
 
-## Home Assistant Integration
+- **Plugin Select**: Dropdown to choose from available plugins/effects
 
-This integration provides complete Home Assistant control of your IKEA OBEGRÄNSAD LED device through HACS.
+### Button Entities
 
-### Installation
+- **Rotate Left Button**: Rotate the display counterclockwise
+- **Rotate Right Button**: Rotate the display clockwise
 
-1. Install via HACS:
-   - Go to HACS → Integrations
-   - Click the three dots → Custom repositories
-   - Add this repository URL: `https://github.com/HennieLP/ikea-led-obegraensad-python-control`
-   - Category: Integration
-   - Install "IKEA OBEGRÄNSAD LED Control"
+## Prerequisites
 
-2. Restart Home Assistant
+- Home Assistant 2023.1.0 or later
+- A modified IKEA OBEGRÄNSAD LED panel with network connectivity
+- The device must be accessible on your local network
+- The device should have a web API endpoint available (typically on port 80)
 
-3. Add the integration:
-   - Go to Settings → Devices & Services
-   - Click "Add Integration"
-   - Search for "IKEA OBEGRÄNSAD LED Control"
-   - Enter your device's IP address
+## Installation
 
-### Entities Created
+### HACS Installation (Recommended)
 
-The integration creates the following entities:
+1. Open HACS in your Home Assistant instance
+2. Navigate to "Integrations"
+3. Click the three dots in the top right corner and select "Custom repositories"
+4. Add this repository URL: `https://github.com/HennieLP/ikea-led-obegraensad-python-control`
+5. Select "Integration" as the category
+6. Click "Add"
+7. Search for "IKEA OBEGRÄNSAD LED Control" in HACS
+8. Click "Download"
+9. Restart Home Assistant
 
-#### Light
-- **IKEA OBEGRÄNSAD LED** - Main light with brightness control
+### Manual Installation
 
-#### Select
-- **IKEA OBEGRÄNSAD Plugin** - Choose between available plugins/display modes
+1. Download the latest release from the [releases page](https://github.com/HennieLP/ikea-led-obegraensad-python-control/releases)
+2. Extract the contents
+3. Copy the `custom_components/ikea_obegraensad` folder to your Home Assistant's `custom_components` directory
+4. The final path should be: `config/custom_components/ikea_obegraensad/`
+5. Restart Home Assistant
 
-#### Sensors
-- **IKEA OBEGRÄNSAD Rotation** - Current display rotation
-- **IKEA OBEGRÄNSAD Active Plugin** - Currently active plugin name
-- **IKEA OBEGRÄNSAD Schedule Status** - Schedule active/inactive
-- **IKEA OBEGRÄNSAD Brightness** - Current brightness percentage
+## Configuration
 
-#### Buttons
-- **IKEA OBEGRÄNSAD Rotate Left** - Rotate display counterclockwise
-- **IKEA OBEGRÄNSAD Rotate Right** - Rotate display clockwise
+### Adding the Integration
 
-### Example Automations
+1. Go to **Settings** → **Devices & Services** in Home Assistant
+2. Click **"+ ADD INTEGRATION"**
+3. Search for **"IKEA OBEGRÄNSAD LED Control"**
+4. Enter the IP address of your IKEA OBEGRÄNSAD LED device
+   - Example: `192.168.1.100` or `192.168.5.60`
+5. Click **Submit**
+
+The integration will automatically discover and set up all available entities for your device.
+
+### Finding Your Device IP Address
+
+You can find your device's IP address through:
+
+- Your router's admin interface
+- Network scanning tools like `nmap`
+- Home Assistant's network discovery
+- Your device's configuration interface (if available)
+
+## Usage Examples
+
+### Basic Light Control
 
 ```yaml
-# Dim display at sunset
-alias: "Dim IKEA LED at sunset"
-trigger:
-  - platform: sun
-    event: sunset
-action:
-  - service: light.turn_on
-    target:
-      entity_id: light.ikea_obegraensad_led
-    data:
-      brightness: 50
+# Turn on the light
+service: light.turn_on
+target:
+  entity_id: light.ikea_obegraensad_led
+data:
+  brightness: 200
 
-# Change plugin based on time of day
-alias: "Change IKEA LED plugin by time"
-trigger:
-  - platform: time
-    at: "08:00:00"
-  - platform: time
-    at: "18:00:00"
-action:
-  - choose:
-      - conditions:
-          - condition: time
-            after: "08:00:00"
-            before: "18:00:00"
-        sequence:
-          - service: select.select_option
-            target:
-              entity_id: select.ikea_obegraensad_plugin  
-            data:
-              option: "1: Clock"
-      - conditions:
-          - condition: time
-            after: "18:00:00"
-        sequence:
-          - service: select.select_option
-            target:
-              entity_id: select.ikea_obegraensad_plugin
-            data:
-              option: "5: Mood Lighting"
+# Turn off the light
+service: light.turn_off
+target:
+  entity_id: light.ikea_obegraensad_led
 ```
+
+### Plugin Selection
+
+```yaml
+# Change to a specific plugin
+service: select.select_option
+target:
+  entity_id: select.ikea_obegraensad_plugin
+data:
+  option: "Matrix Rain"
+```
+
+### Rotation Control
+
+```yaml
+# Rotate left
+service: button.press
+target:
+  entity_id: button.ikea_obegraensad_rotate_left
+
+# Rotate right
+service: button.press
+target:
+  entity_id: button.ikea_obegraensad_rotate_right
+```
+
+### Automation Example
+
+```yaml
+automation:
+  - alias: "LED Panel Evening Mode"
+    trigger:
+      - platform: sun
+        event: sunset
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.ikea_obegraensad_plugin
+        data:
+          option: "Clock"
+      - service: light.turn_on
+        target:
+          entity_id: light.ikea_obegraensad_led
+        data:
+          brightness: 100
+
+  - alias: "LED Panel Night Mode"
+    trigger:
+      - platform: time
+        at: "22:00:00"
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.ikea_obegraensad_led
+        data:
+          brightness: 50
+```
+
+## API Endpoints
+
+The integration communicates with your device using these endpoints:
+
+- **HTTP API Base**: `http://[device_ip]/api`
+- **WebSocket**: `ws://[device_ip]/ws`
+
+### Expected Device API Response Format
+
+The device should respond with JSON data containing:
+
+```json
+{
+  "brightness": 150,
+  "rotation": 0,
+  "plugin": "Clock",
+  "scheduleActive": false,
+  "schedule": [],
+  "plugins": ["Clock", "Matrix Rain", "Fire", "Rainbow"]
+}
+```
+
+## Troubleshooting
+
+### Connection Issues
+
+1. **Cannot connect to device**:
+   - Verify the IP address is correct
+   - Ensure the device is powered on and connected to your network
+   - Check that your Home Assistant can reach the device's network
+   - Verify the device's web interface is accessible
+
+2. **WebSocket connection problems**:
+   - Check device logs for WebSocket server issues
+   - Ensure no firewall is blocking WebSocket connections
+   - Verify the device supports WebSocket on `/ws` endpoint
+
+### Entity Not Updating
+
+1. **Sensors not reflecting changes**:
+   - Check WebSocket connection status in logs
+   - Verify device is sending proper JSON format
+   - Look for network connectivity issues
+
+2. **Controls not working**:
+   - Ensure device API accepts POST requests
+   - Check device logs for API errors
+   - Verify correct JSON payload format
+
+### Debugging
+
+Enable debug logging by adding this to your `configuration.yaml`:
+
+```yaml
+logger:
+  default: info
+  logs:
+    custom_components.ikea_obegraensad: debug
+```
+
+Then check Home Assistant logs for detailed connection and communication information.
+
+## Device Requirements
+
+Your IKEA OBEGRÄNSAD LED device must:
+
+1. Be connected to your local network
+2. Run a web server (typically on port 80)
+3. Provide HTTP API endpoints for control
+4. Support WebSocket connections for real-time updates
+5. Return JSON responses in the expected format
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/HennieLP/ikea-led-obegraensad-python-control/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/HennieLP/ikea-led-obegraensad-python-control/discussions)
+- **Documentation**: [Project Wiki](https://github.com/HennieLP/ikea-led-obegraensad-python-control/wiki)
 
 ## Credits
 
-- Hardware modification and ESP32 firmware: [ph1p/ikea-led-obegraensad](https://github.com/ph1p/ikea-led-obegraensad)
-- Python library and Home Assistant integration: This project
+- **Maintainers**: [@HennieLP](https://github.com/HennieLP), [@Pytonballoon810](https://github.com/Pytonballoon810)
+- **Based on**: IKEA OBEGRÄNSAD LED hardware modifications
+- **Home Assistant Integration**: Built using the official Home Assistant integration framework
+
+---
+
+**Note**: This integration requires a modified IKEA OBEGRÄNSAD LED panel with network connectivity. Standard IKEA OBEGRÄNSAD panels do not support network communication out of the box.
