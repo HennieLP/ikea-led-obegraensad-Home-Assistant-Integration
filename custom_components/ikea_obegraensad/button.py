@@ -86,7 +86,8 @@ class IkeaLedRotateLeftButton(IkeaLedBaseButton):
             await self.hass.async_add_executor_job(
                 controller.set_rotation, "left"
             )
-            # WebSocket will automatically update the state
+            # Gentle refresh to ensure UI updates
+            await self.coordinator.async_refresh_after_command()
         except Exception as ex:
             _LOGGER.error("Failed to rotate left: %s", ex)
 
@@ -112,6 +113,7 @@ class IkeaLedRotateRightButton(IkeaLedBaseButton):
             await self.hass.async_add_executor_job(
                 controller.set_rotation, "right"
             )
-            # WebSocket will automatically update the state
+            # Gentle refresh to ensure UI updates
+            await self.coordinator.async_refresh_after_command()
         except Exception as ex:
             _LOGGER.error("Failed to rotate right: %s", ex)

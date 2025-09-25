@@ -94,7 +94,8 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
                 controller.set_plugin, plugin_id
             )
             
-            # WebSocket will automatically update the state
+            # Gentle refresh to ensure UI updates
+            await self.coordinator.async_refresh_after_command()
             
         except (ValueError, IndexError) as ex:
             _LOGGER.error("Failed to parse plugin ID from option: %s", option)

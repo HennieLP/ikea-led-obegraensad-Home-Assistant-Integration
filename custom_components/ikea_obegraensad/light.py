@@ -104,11 +104,13 @@ class IkeaLedLight(CoordinatorEntity[IkeaLedCoordinator], LightEntity):
         else:
             await self.hass.async_add_executor_job(controller.turn_on)
         
-        # WebSocket will automatically update the state
+        # Gentle refresh to ensure UI updates
+        await self.coordinator.async_refresh_after_command()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the light."""
         controller = self.coordinator.led_controller
         await self.hass.async_add_executor_job(controller.turn_off)
         
-        # WebSocket will automatically update the state
+        # Gentle refresh to ensure UI updates  
+        await self.coordinator.async_refresh_after_command()
