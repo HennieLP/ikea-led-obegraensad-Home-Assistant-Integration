@@ -22,6 +22,7 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.host = host
         self._led_controller = None
         self._websocket_task = None
+        self._monitoring_callback_registered = False
         
         # Use moderate update interval - WebSocket provides real-time updates
         # but we need some polling as fallback
@@ -44,11 +45,78 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # Give WebSocket some time to establish connection
                 await asyncio.sleep(2)
                 
+                # Hook into the monitoring system for WebSocket updates
+                if not self._monitoring_callback_registered:
+                    self._setup_websocket_monitoring()
+                    self._monitoring_callback_registered = True
+                
                 _LOGGER.info("IKEA LED controller setup completed for %s", self.host)
                     
             except Exception as ex:
                 _LOGGER.exception("Failed to set up IKEA LED controller")
                 raise UpdateFailed(f"Error setting up controller: {ex}") from ex
+
+    def _setup_websocket_monitoring(self) -> None:
+        """Set up monitoring of WebSocket state changes."""
+        if not self._led_controller:
+            return
+            
+        # Store the original monitor_changes function
+        original_monitor = self._led_controller._start_monitoring
+        
+        # Create an enhanced monitor that includes HA updates
+        def enhanced_monitor():
+            def monitor_changes():
+                import time
+                while True:
+                    try:
+                        with self._led_controller._ws_lock:
+                            current_state = dict(self._led_controller._state)
+                        
+                        # Check for changes and trigger HA updates
+                        for key, value in current_state.items():
+                            if key not in self._led_controller._last_state or self._led_controller._last_state[key] != value:
+                                if key in self._led_controller._last_state:  # Don't log initial values
+                                    print(f"Change detected: {key} changed from {self._led_controller._last_state[key]} to {value}")
+                                    # Schedule HA update on the main thread
+                                    self.hass.loop.call_soon_threadsafe(
+                                        lambda: self.hass.async_create_task(self._on_websocket_change())
+                                    )
+                                self._led_controller._last_state[key] = value
+                        
+                        time.sleep(0.5)  # Check every 500ms
+                    except Exception as e:
+                        # Silently continue if there's an error getting state
+                        time.sleep(1)
+            
+            import threading
+            self._led_controller._monitor_thread = threading.Thread(target=monitor_changes, daemon=True)
+            self._led_controller._monitor_thread.start()
+        
+        # Replace the monitoring function
+        self._led_controller._start_monitoring = enhanced_monitor
+        
+        # If monitoring hasn't started yet, start it now with our enhanced version
+        if not hasattr(self._led_controller, '_monitor_thread') or not self._led_controller._monitor_thread.is_alive():
+            enhanced_monitor()
+
+    async def _on_websocket_change(self) -> None:
+        """Handle WebSocket state changes."""
+        try:
+            # Get current state from the controller
+            if self._led_controller:
+                current_data = await self.hass.async_add_executor_job(self._led_controller.get_info)
+                
+                # Update the coordinator's data
+                self.data = current_data
+                
+                # Notify all listeners (entities) of the update
+                self.async_update_listeners()
+                
+                _LOGGER.debug("WebSocket change triggered HA update")
+                
+        except Exception as ex:
+            _LOGGER.debug("Failed to handle WebSocket change: %s", ex)
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data via library."""

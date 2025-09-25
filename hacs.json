@@ -7,6 +7,6 @@
     "select",
     "sensor"
   ],
-  "iot_class": "Local Polling",
+  "iot_class": "Local Push",
   "homeassistant": "2023.1.0"
 }
