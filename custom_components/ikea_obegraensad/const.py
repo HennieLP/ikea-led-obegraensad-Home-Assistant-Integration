@@ -8,7 +8,8 @@ CONF_HOST = "host"
 # Default values
 DEFAULT_NAME = "IKEA OBEGRÄNSAD LED"
 DEFAULT_PORT = 80
-DEFAULT_UPDATE_INTERVAL = 30
+# Fallback update interval (WebSocket provides real-time updates)
+DEFAULT_UPDATE_INTERVAL = 300  # 5 minutes as fallback only
 
 # Attributes
 ATTR_PLUGIN = "plugin"

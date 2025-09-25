@@ -61,7 +61,7 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
             return []
         
         return [
-            f"{plugin.get('id')}: {plugin.get('name', 'Unknown')}"
+            f"{plugin.get('name', 'Unknown')}"
             for plugin in self.coordinator.data["plugins"]
         ]
 
@@ -94,8 +94,7 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
                 controller.set_plugin, plugin_id
             )
             
-            # Request immediate update
-            await self.coordinator.async_request_refresh()
+            # WebSocket will automatically update the state
             
         except (ValueError, IndexError) as ex:
             _LOGGER.error("Failed to parse plugin ID from option: %s", option)
