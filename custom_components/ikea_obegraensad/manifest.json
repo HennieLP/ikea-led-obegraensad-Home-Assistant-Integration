@@ -5,7 +5,6 @@
   "documentation": "https://github.com/HennieLP/ikea-led-obegraensad-python-control",
   "issue_tracker": "https://github.com/HennieLP/ikea-led-obegraensad-python-control/issues",
   "requirements": [
-    "requests",
     "websockets"
   ],
   "codeowners": [

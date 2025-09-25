@@ -80,11 +80,9 @@ class IkeaLedRotateLeftButton(IkeaLedBaseButton):
 
     async def async_press(self) -> None:
         """Handle the button press."""
-        controller = self.coordinator.led_controller
-        
         try:
             await self.hass.async_add_executor_job(
-                controller.set_rotation, "left"
+                self.coordinator.set_rotation, "left"
             )
             # Gentle refresh to ensure UI updates
             await self.coordinator.async_refresh_after_command()
@@ -107,11 +105,9 @@ class IkeaLedRotateRightButton(IkeaLedBaseButton):
 
     async def async_press(self) -> None:
         """Handle the button press."""
-        controller = self.coordinator.led_controller
-        
         try:
             await self.hass.async_add_executor_job(
-                controller.set_rotation, "right"
+                self.coordinator.set_rotation, "right"
             )
             # Gentle refresh to ensure UI updates
             await self.coordinator.async_refresh_after_command()

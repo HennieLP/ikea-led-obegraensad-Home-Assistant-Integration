@@ -94,23 +94,25 @@ class IkeaLedLight(CoordinatorEntity[IkeaLedCoordinator], LightEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on the light."""
-        controller = self.coordinator.led_controller
-        
         if ATTR_BRIGHTNESS in kwargs:
             brightness = kwargs[ATTR_BRIGHTNESS]
             await self.hass.async_add_executor_job(
-                controller.set_brightness, brightness
+                self.coordinator.set_brightness, brightness
             )
         else:
-            await self.hass.async_add_executor_job(controller.turn_on)
+            # Turn on with max brightness
+            await self.hass.async_add_executor_job(
+                self.coordinator.set_brightness, 255
+            )
         
         # Gentle refresh to ensure UI updates
         await self.coordinator.async_refresh_after_command()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the light."""
-        controller = self.coordinator.led_controller
-        await self.hass.async_add_executor_job(controller.turn_off)
+        await self.hass.async_add_executor_job(
+            self.coordinator.set_brightness, 0
+        )
         
         # Gentle refresh to ensure UI updates  
         await self.coordinator.async_refresh_after_command()

@@ -88,10 +88,9 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
         # Extract plugin ID from the option string (format: "ID: Name")
         try:
             plugin_id = int(option.split(":")[0].strip())
-            controller = self.coordinator.led_controller
             
             await self.hass.async_add_executor_job(
-                controller.set_plugin, plugin_id
+                self.coordinator.set_plugin, plugin_id
             )
             
             # Gentle refresh to ensure UI updates

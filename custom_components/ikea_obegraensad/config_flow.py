@@ -1,6 +1,7 @@
 """Config flow for IKEA OBEGRÄNSAD LED Control integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 import voluptuous as vol
@@ -61,26 +62,34 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _test_connection(self, host: str) -> bool:
         """Test if we can connect to the device."""
         try:
-            # Import the library using relative import
-            from . import ikea_led_obegraensad_python_control
+            # Import the coordinator to test connection
+            from .coordinator import IkeaLedCoordinator
             
-            # Create controller instance
-            controller = ikea_led_obegraensad_python_control.setup(host)
+            # Create a temporary coordinator for testing
+            test_coordinator = IkeaLedCoordinator(self.hass, host)
             
-            # Test connection by getting device info with timeout
-            info = await self.hass.async_add_executor_job(controller.get_info)
+            # Give it time to establish WebSocket connection
+            await asyncio.sleep(3)
             
-            if not info or not isinstance(info, dict):
-                _LOGGER.warning("Device at %s returned invalid info: %s", host, info)
+            # Try to get initial data
+            await test_coordinator.async_config_entry_first_refresh()
+            
+            # Check if we got valid data
+            if not test_coordinator.data or not isinstance(test_coordinator.data, dict):
+                _LOGGER.warning("Device at %s returned invalid data: %s", host, test_coordinator.data)
                 raise CannotConnect
             
             # Verify we have expected fields in the response
             required_fields = ["brightness"]  # Minimum required field
-            if not any(field in info for field in required_fields):
-                _LOGGER.warning("Device at %s returned unexpected info format: %s", host, info)
+            if not any(field in test_coordinator.data for field in required_fields):
+                _LOGGER.warning("Device at %s returned unexpected data format: %s", host, test_coordinator.data)
                 raise CannotConnect
                 
             _LOGGER.info("Successfully connected to IKEA LED device at %s", host)
+            
+            # Clean up test coordinator
+            await test_coordinator.async_shutdown()
+            
             return True
             
         except ConnectionError as ex:
