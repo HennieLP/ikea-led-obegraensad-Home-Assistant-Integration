@@ -90,7 +90,7 @@ class IkeaLedRotationSensor(IkeaLedBaseSensor):
         """Return the current rotation value."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("rotation")
+        return (90 * self.coordinator.data.get("rotation")) % 360
 
     @property
     def native_unit_of_measurement(self) -> str:
@@ -198,7 +198,8 @@ class IkeaLedBrightnessSensor(IkeaLedBaseSensor):
         """Return the current brightness value."""
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.get("brightness")
+        brightness_raw = self.coordinator.data.get("brightness")
+        return round((brightness_raw / 255) * 100, 1)
 
     @property
     def native_unit_of_measurement(self) -> str:
@@ -213,6 +214,6 @@ class IkeaLedBrightnessSensor(IkeaLedBaseSensor):
             
         brightness = self.coordinator.data.get("brightness", 0)
         return {
-            "brightness_raw": brightness,
             "brightness_percent": round((brightness / 255) * 100, 1),
+            "brightness_raw": brightness,
         }

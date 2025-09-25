@@ -2,12 +2,15 @@
 
 ⚠️⚠️ **Warning: This integration is in active development and may not yet support all features or devices. Use at your own risk.** ⚠️⚠️
 
-_Note: This only works with modified IKEA OBEGRÄNSAD LED panels that use [this request](TODO) or later of the [IKEA OBEGRÄNSAD Hack/Mod
+_Note: This only works with modified IKEA OBEGRÄNSAD LED panels that use [this request](https://github.com/ph1p/ikea-led-obegraensad/pull/165) or later of the [IKEA OBEGRÄNSAD Hack/Mod
 ](https://github.com/ph1p/ikea-led-obegraensad) by [@ph1p](https://github.com/ph1p)_
 
 A Home Assistant custom integration for controlling IKEA OBEGRÄNSAD LED displays via local network communication. This integration provides real-time control and monitoring of your modified IKEA OBEGRÄNSAD LED panel through WebSocket connections.
 
 ## Overview
+
+![HA preview](preview.png)
+![HA light](light.png)
 
 The IKEA OBEGRÄNSAD LED Control integration enables seamless integration of modified IKEA OBEGRÄNSAD LED panels with Home Assistant. It communicates directly with the device over your local network using HTTP API calls and WebSocket connections for real-time updates.
 
