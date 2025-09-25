@@ -39,8 +39,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Test connection
             try:
                 await self._test_connection(host)
-            except CannotConnect as e:
-                errors["base"] = "cannot_connect " + e
             except Exception as e:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = e
@@ -63,8 +61,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _test_connection(self, host: str) -> bool:
         """Test if we can connect to the device."""
         try:
-            # Import the library dynamically
-            import ikea_led_obegraensad_python_control
+            # Import the library using relative import
+            from . import ikea_led_obegraensad_python_control
             
             # Create controller instance
             controller = ikea_led_obegraensad_python_control.setup(host)

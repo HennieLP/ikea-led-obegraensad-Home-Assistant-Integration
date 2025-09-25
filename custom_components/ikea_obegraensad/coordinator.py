@@ -32,8 +32,8 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Set up the LED controller."""
         if self._led_controller is None:
             try:
-                # Import the library dynamically to avoid import issues
-                import ikea_led_obegraensad_python_control
+                # Import the library using relative import
+                from . import ikea_led_obegraensad_python_control
                 
                 self._led_controller = ikea_led_obegraensad_python_control.setup(self.host)
             except Exception as ex:
