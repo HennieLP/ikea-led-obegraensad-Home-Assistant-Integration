@@ -1,0 +1,18 @@
+{
+  "domain": "ikea_obegraensad",
+  "name": "IKEA OBEGRÄNSAD LED Control",
+  "version": "1.0.0",
+  "documentation": "https://github.com/HennieLP/ikea-led-obegraensad-python-control",
+  "issue_tracker": "https://github.com/HennieLP/ikea-led-obegraensad-python-control/issues",
+  "requirements": [
+    "requests",
+    "websockets"
+  ],
+  "codeowners": [
+    "@HennieLP",
+    "@Pytonballoon810"
+  ],
+  "config_flow": true,
+  "integration_type": "device",
+  "iot_class": "local_push"
+}

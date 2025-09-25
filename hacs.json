@@ -1,0 +1,12 @@
+{
+  "name": "IKEA OBEGRÄNSAD LED Control",
+  "hacs": "1.6.0",
+  "domains": [
+    "button",
+    "light", 
+    "select",
+    "sensor"
+  ],
+  "iot_class": "Local Polling",
+  "homeassistant": "2023.1.0"
+}

@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "IKEA OBEGRÄNSAD LED Control",
+        "description": "Enter the IP address of your IKEA OBEGRÄNSAD LED device",
+        "data": {
+          "host": "Host (IP address)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the device. Please check the IP address and ensure the device is accessible.",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  }
+}
