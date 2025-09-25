@@ -61,7 +61,7 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
             return []
         
         return [
-            f"{plugin.get('name', 'Unknown')}"
+            f"{plugin.get('id')}: {plugin.get('name', 'Unknown')}"
             for plugin in self.coordinator.data["plugins"]
         ]
 
