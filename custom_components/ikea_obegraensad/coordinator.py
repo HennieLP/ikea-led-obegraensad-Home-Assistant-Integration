@@ -13,7 +13,7 @@ import websockets
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN
+from .const import DOMAIN, DEFAULT_UPDATE_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=60),  # WebSocket provides real-time updates
+            update_interval=DEFAULT_UPDATE_INTERVAL,  # WebSocket provides real-time updates
         )
         
         # Start WebSocket and monitoring after coordinator is initialized
