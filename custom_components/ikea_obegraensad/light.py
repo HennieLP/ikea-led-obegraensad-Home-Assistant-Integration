@@ -85,7 +85,6 @@ class IkeaLedLight(CoordinatorEntity[IkeaLedCoordinator], LightEntity):
         return {
             "plugin": data.get("plugin"),
             "rotation": data.get("rotation"),
-            "schedule_active": data.get("scheduleActive"),
             "available_plugins": [
                 f"{plugin.get('id')}: {plugin.get('name', 'Unknown')}"
                 for plugin in data.get("plugins", [])

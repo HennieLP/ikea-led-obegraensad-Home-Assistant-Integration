@@ -32,8 +32,6 @@ async def async_setup_entry(
     sensors = [
         IkeaLedRotationSensor(coordinator, entry),
         IkeaLedActivePluginSensor(coordinator, entry),
-        IkeaLedScheduleStatusSensor(coordinator, entry),
-        IkeaLedBrightnessSensor(coordinator, entry),
     ]
     
     async_add_entities(sensors)
@@ -141,79 +139,4 @@ class IkeaLedActivePluginSensor(IkeaLedBaseSensor):
                 {"id": plugin.get("id"), "name": plugin.get("name", "Unknown")}
                 for plugin in self.coordinator.data.get("plugins", [])
             ],
-        }
-
-
-class IkeaLedScheduleStatusSensor(IkeaLedBaseSensor):
-    """Sensor for schedule status."""
-
-    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry) -> None:
-        """Initialize the schedule status sensor."""
-        super().__init__(
-            coordinator,
-            entry,
-            "schedule_status",
-            "Schedule Status",
-            "mdi:calendar-clock"
-        )
-        self._attr_device_class = SensorDeviceClass.ENUM
-        self._attr_options = ["active", "inactive"]
-
-    @property
-    def native_value(self) -> str | None:
-        """Return the current schedule status."""
-        if not self.coordinator.data:
-            return None
-            
-        schedule_active = self.coordinator.data.get("scheduleActive", False)
-        return "active" if schedule_active else "inactive"
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return extra state attributes."""
-        if not self.coordinator.data:
-            return None
-            
-        return {
-            "schedule": self.coordinator.data.get("schedule", [])
-        }
-
-
-class IkeaLedBrightnessSensor(IkeaLedBaseSensor):
-    """Sensor for current brightness value."""
-
-    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry) -> None:
-        """Initialize the brightness sensor."""
-        super().__init__(
-            coordinator,
-            entry,
-            "brightness",
-            "Brightness",
-            "mdi:brightness-6"
-        )
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-
-    @property
-    def native_value(self) -> int | None:
-        """Return the current brightness value."""
-        if not self.coordinator.data:
-            return None
-        brightness_raw = self.coordinator.data.get("brightness")
-        return round((brightness_raw / 255) * 100, 1)
-
-    @property
-    def native_unit_of_measurement(self) -> str:
-        """Return the unit of measurement."""
-        return "%"
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return extra state attributes."""
-        if not self.coordinator.data:
-            return None
-            
-        brightness = self.coordinator.data.get("brightness", 0)
-        return {
-            "brightness_percent": round((brightness / 255) * 100, 1),
-            "brightness_raw": brightness,
         }

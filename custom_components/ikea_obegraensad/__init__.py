@@ -14,7 +14,7 @@ from .coordinator import IkeaLedCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.SELECT, Platform.SENSOR, Platform.BUTTON]
+PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.SELECT, Platform.SENSOR, Platform.BUTTON, Platform.SWITCH]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

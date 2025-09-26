@@ -225,6 +225,13 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "direction": direction
         })
 
+    def set_schedule_state(self, active: bool) -> None:
+        """Set the schedule active state."""
+        self._send_ws_command({
+            "event": "scheduleActive",
+            "scheduleActive": active
+        })
+
     # State Access Methods
     def get_brightness(self) -> int:
         """Get the current brightness value (0-255)."""
