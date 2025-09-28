@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from functools import cached_property
 from typing import Any
 
 from homeassistant.components.light import (
@@ -16,8 +17,8 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .coordinator import IkeaLedCoordinator
+from custom_components.ikea_obegraensad.const import DOMAIN
+from custom_components.ikea_obegraensad.coordinator import IkeaLedCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,7 +51,13 @@ class IkeaLedLight(CoordinatorEntity[IkeaLedCoordinator], LightEntity):
         self._attr_color_mode = ColorMode.BRIGHTNESS
         self._attr_supported_features = LightEntityFeature.TRANSITION
 
-    @property
+    # Override available to resolve inheritance conflict
+    @cached_property
+    def available(self) -> bool:  # type: ignore[misc]
+        """Return if entity is available."""
+        return self.coordinator.last_update_success
+
+    @cached_property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         return DeviceInfo(
@@ -61,21 +68,21 @@ class IkeaLedLight(CoordinatorEntity[IkeaLedCoordinator], LightEntity):
             configuration_url=f"http://{self.coordinator.host}",
         )
 
-    @property
+    @cached_property
     def is_on(self) -> bool:
         """Return true if light is on."""
         if not self.coordinator.data:
             return False
         return self.coordinator.data.get("brightness", 0) > 0
 
-    @property
+    @cached_property
     def brightness(self) -> int | None:
         """Return the brightness of this light between 0..255."""
         if not self.coordinator.data:
             return None
         return self.coordinator.data.get("brightness", 0)
 
-    @property
+    @cached_property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return extra state attributes."""
         if not self.coordinator.data:

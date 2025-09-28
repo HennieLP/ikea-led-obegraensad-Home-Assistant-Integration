@@ -11,8 +11,8 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .coordinator import IkeaLedCoordinator
+from custom_components.ikea_obegraensad.const import DOMAIN
+from custom_components.ikea_obegraensad.coordinator import IkeaLedCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 

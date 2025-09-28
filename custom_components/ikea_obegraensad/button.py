@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from functools import cached_property
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
@@ -11,8 +11,8 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .coordinator import IkeaLedCoordinator
+from custom_components.ikea_obegraensad.const import DOMAIN
+from custom_components.ikea_obegraensad.coordinator import IkeaLedCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ async def async_setup_entry(
     """Set up the IKEA OBEGRÄNSAD LED button platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     
-    buttons = [
+    buttons: list[ButtonEntity] = [
         IkeaLedRotateLeftButton(coordinator, entry),
         IkeaLedRotateRightButton(coordinator, entry),
     ]
@@ -53,8 +53,14 @@ class IkeaLedBaseButton(CoordinatorEntity[IkeaLedCoordinator], ButtonEntity):
         if icon:
             self._attr_icon = icon
 
-    @property
-    def device_info(self) -> DeviceInfo:
+    # Override available to resolve inheritance conflict
+    @cached_property
+    def available(self) -> bool:  # type: ignore[misc]
+        """Return if entity is available."""
+        return self.coordinator.last_update_success
+
+    @cached_property
+    def device_info(self) -> DeviceInfo | None:
         """Return device information."""
         return DeviceInfo(
             identifiers={(DOMAIN, self._entry.entry_id)},

@@ -7,13 +7,13 @@ import logging
 import threading
 import time
 from datetime import timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import websockets
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, DEFAULT_UPDATE_INTERVAL
+from custom_components.ikea_obegraensad.const import DOMAIN, DEFAULT_UPDATE_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,9 +26,9 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.host = host
         self.base_url = f"http://{host}/api"
         self.ws_url = f"ws://{host}/ws"
-        self.websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self.websocket: Any = None
         self.ws_connected = False
-        self._state = {
+        self._state: dict[str, Any] = {
             "brightness": 0,
             "rotation": 0,
             "plugin": None,
@@ -37,7 +37,7 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "plugins": []
         }
         self._ws_lock = threading.Lock()
-        self._last_state = {}
+        self._last_state: dict[str, Any] = {}
         self._ws_thread = None
         self._monitor_thread = None
         
@@ -45,7 +45,7 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=DEFAULT_UPDATE_INTERVAL,  # WebSocket provides real-time updates
+            update_interval=timedelta(seconds=DEFAULT_UPDATE_INTERVAL),  # WebSocket provides real-time updates
         )
         
         # Start WebSocket and monitoring after coordinator is initialized
@@ -118,10 +118,15 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Wait before reconnecting
             await asyncio.sleep(5)
 
-    async def _handle_ws_message(self, message: str):
+    async def _handle_ws_message(self, message: str | bytes) -> None:
         """Handle incoming WebSocket messages."""
         try:
-            data = json.loads(message)
+            # Convert message to string for JSON parsing
+            if isinstance(message, str):
+                data = json.loads(message)
+            else:
+                # Handle bytes or other types by converting to string
+                data = json.loads(str(message, 'utf-8') if isinstance(message, bytes) else str(message))
             with self._ws_lock:
                 if "brightness" in data:
                     self._state["brightness"] = data["brightness"]
@@ -138,7 +143,7 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except json.JSONDecodeError as ex:
             _LOGGER.warning("Error parsing WebSocket message: %s", ex)
 
-    async def _send_ws_message(self, data: Dict[str, Any]):
+    async def _send_ws_message(self, data: dict[str, Any]) -> None:
         """Send a message through the WebSocket connection."""
         if not self.ws_connected or not self.websocket:
             raise ConnectionError("WebSocket connection is not available")
@@ -153,18 +158,20 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.warning("Error sending WebSocket message: %s", ex)
             raise
 
-    def _send_ws_command(self, data: Dict[str, Any]) -> None:
+    def _send_ws_command(self, data: dict[str, Any]) -> None:
         """Helper method to send WebSocket commands."""
         if not self.ws_connected:
             raise ConnectionError("WebSocket connection is not available")
         
         # Create a new event loop for this thread
+        loop = None
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             loop.run_until_complete(self._send_ws_message(data))
         finally:
-            loop.close()
+            if loop:
+                loop.close()
 
     async def _on_websocket_change(self) -> None:
         """Handle WebSocket state changes."""
@@ -248,7 +255,7 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         with self._ws_lock:
             return self._state["plugin"]
 
-    def get_available_plugins(self) -> list:
+    def get_available_plugins(self) -> list[Any]:
         """Get list of available plugins."""
         with self._ws_lock:
             return self._state["plugins"]
@@ -258,7 +265,7 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         with self._ws_lock:
             return self._state["scheduleActive"]
 
-    def get_schedule(self) -> list:
+    def get_schedule(self) -> list[Any]:
         """Get the current schedule."""
         with self._ws_lock:
             return self._state["schedule"]

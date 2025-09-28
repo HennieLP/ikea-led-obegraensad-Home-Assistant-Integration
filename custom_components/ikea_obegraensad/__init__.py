@@ -2,15 +2,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import DOMAIN
-from .coordinator import IkeaLedCoordinator
+from custom_components.ikea_obegraensad.const import DOMAIN
+from custom_components.ikea_obegraensad.coordinator import IkeaLedCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 

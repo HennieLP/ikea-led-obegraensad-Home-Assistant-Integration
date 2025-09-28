@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from functools import cached_property
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
@@ -11,8 +11,8 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .coordinator import IkeaLedCoordinator
+from custom_components.ikea_obegraensad.const import DOMAIN
+from custom_components.ikea_obegraensad.coordinator import IkeaLedCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,7 +43,13 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
         self._attr_name = "IKEA OBEGRÄNSAD Plugin"
         self._attr_icon = "mdi:format-list-bulleted"
 
-    @property
+    # Override available to resolve inheritance conflict
+    @cached_property
+    def available(self) -> bool:  # type: ignore[misc]
+        """Return if entity is available."""
+        return self.coordinator.last_update_success
+
+    @cached_property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         return DeviceInfo(
@@ -54,7 +60,7 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
             configuration_url=f"http://{self.coordinator.host}",
         )
 
-    @property
+    @cached_property
     def options(self) -> list[str]:
         """Return a list of selectable options."""
         if not self.coordinator.data or "plugins" not in self.coordinator.data:
@@ -65,7 +71,7 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
             for plugin in self.coordinator.data["plugins"]
         ]
 
-    @property
+    @cached_property
     def current_option(self) -> str | None:
         """Return the current selected option."""
         if not self.coordinator.data:

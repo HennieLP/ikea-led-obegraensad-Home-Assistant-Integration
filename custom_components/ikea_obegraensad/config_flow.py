@@ -7,12 +7,11 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_HOST
-from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import DOMAIN
+from custom_components.ikea_obegraensad.const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
         
@@ -42,7 +41,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self._test_connection(host)
             except Exception as e:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
-                errors["base"] = e
+                errors["base"] = str(e)
             else:
                 # Check if already configured
                 await self.async_set_unique_id(host)
@@ -75,7 +74,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await test_coordinator.async_config_entry_first_refresh()
             
             # Check if we got valid data
-            if not test_coordinator.data or not isinstance(test_coordinator.data, dict):
+            if not test_coordinator.data:
                 _LOGGER.warning("Device at %s returned invalid data: %s", host, test_coordinator.data)
                 raise CannotConnect
             

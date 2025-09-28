@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import logging
+from functools import cached_property
 from typing import Any
 
 from homeassistant.components.sensor import (
-    SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
 )
@@ -15,8 +15,8 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .coordinator import IkeaLedCoordinator
+from custom_components.ikea_obegraensad.const import DOMAIN
+from custom_components.ikea_obegraensad.coordinator import IkeaLedCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ async def async_setup_entry(
     """Set up the IKEA OBEGRÄNSAD LED sensor platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     
-    sensors = [
+    sensors: list[SensorEntity] = [
         IkeaLedRotationSensor(coordinator, entry),
         IkeaLedActivePluginSensor(coordinator, entry),
     ]
@@ -57,7 +57,7 @@ class IkeaLedBaseSensor(CoordinatorEntity[IkeaLedCoordinator], SensorEntity):
         if icon:
             self._attr_icon = icon
 
-    @property
+    @cached_property
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         return DeviceInfo(
@@ -83,14 +83,15 @@ class IkeaLedRotationSensor(IkeaLedBaseSensor):
         )
         self._attr_state_class = SensorStateClass.MEASUREMENT
 
-    @property
+    @cached_property
     def native_value(self) -> int | None:
         """Return the current rotation value."""
         if not self.coordinator.data:
             return None
-        return (90 * self.coordinator.data.get("rotation")) % 360
+        rotation = self.coordinator.data.get("rotation")
+        return (90 * rotation) % 360 if rotation is not None else None
 
-    @property
+    @cached_property
     def native_unit_of_measurement(self) -> str:
         """Return the unit of measurement."""
         return "°"
@@ -109,7 +110,7 @@ class IkeaLedActivePluginSensor(IkeaLedBaseSensor):
             "mdi:puzzle"
         )
 
-    @property
+    @cached_property
     def native_value(self) -> str | None:
         """Return the current active plugin name."""
         if not self.coordinator.data:
@@ -127,7 +128,7 @@ class IkeaLedActivePluginSensor(IkeaLedBaseSensor):
                 
         return f"Plugin {plugin_id}"
 
-    @property
+    @cached_property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return extra state attributes."""
         if not self.coordinator.data:
