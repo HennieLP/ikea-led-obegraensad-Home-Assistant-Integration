@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 
 from ..coordinator import IkeaLedCoordinator
-from .registry import EntityConfig, EntityRegistry, EntityType
+from .registry import EntityConfig, EntityRegistry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class EntityFactory:
         entry: ConfigEntry,
     ) -> list[Any]:
         """Create all entities for a specific platform."""
-        entities = []
+        entities: list[Any] = []
         
         # Get entities for this platform
         entity_configs = self.registry.get_entities_for_platform(platform)

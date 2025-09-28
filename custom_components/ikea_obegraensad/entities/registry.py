@@ -1,6 +1,7 @@
 """Entity registry for managing entity configurations."""
 from __future__ import annotations
 
+import inspect
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -8,7 +9,6 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.helpers.entity import Entity
 
 from ..coordinator import IkeaLedCoordinator
 
@@ -31,15 +31,15 @@ class EntityConfig:
     name: str
     icon: str | None
     entity_type: EntityType
-    entity_class: type[Entity]
+    entity_class: type[Any]
     device_class: str | None = None
     unit_of_measurement: str | None = None
     state_class: str | None = None
     options: list[str] | None = None
     translation_key: str | None = None
-    extra_attributes: list[str] = field(default_factory=list)
-    prerequisites: list[str] = field(default_factory=list)
-    conditions: dict[str, Any] = field(default_factory=dict)
+    extra_attributes: list[str] = field(default_factory=lambda: [])
+    prerequisites: list[str] = field(default_factory=lambda: [])
+    conditions: dict[str, Any] = field(default_factory=lambda: {})
 
 
 class EntityRegistry:
@@ -293,7 +293,20 @@ class EntityRegistry:
         if not config:
             raise ValueError(f"Entity configuration not found for key: {key}")
         
-        return config.entity_class(coordinator, entry, config)
+        # Inspect the constructor to determine if it expects a config parameter
+        init_signature = inspect.signature(config.entity_class.__init__)
+        params = list(init_signature.parameters.keys())
+        
+        # Remove 'self' parameter from consideration
+        params = params[1:] if params and params[0] == 'self' else params
+        
+        # Call constructor with appropriate parameters
+        if len(params) >= 3:
+            # Constructor expects coordinator, entry, and config
+            return config.entity_class(coordinator, entry, config)
+        else:
+            # Constructor expects only coordinator and entry
+            return config.entity_class(coordinator, entry)
 
     def get_platforms(self) -> list[Platform]:
         """Get all platforms that have registered entities."""
