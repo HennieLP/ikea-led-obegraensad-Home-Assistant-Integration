@@ -33,22 +33,19 @@ This integration creates the following entities in Home Assistant:
   - Supports transitions
   - Brightness control (0-255)
   - On/Off state management
-
-### Sensor Entities
-
-- **Rotation Sensor**: Current rotation angle of the display
-- **Active Plugin Sensor**: Currently selected plugin/effect
-- **Schedule Status Sensor**: Whether a schedule is currently active
-- **Brightness Sensor**: Current brightness level as a sensor
+  - Shows plugin, rotation, and schedule status as attributes
 
 ### Select Entity
 
 - **Plugin Select**: Dropdown to choose from available plugins/effects
 
-### Button Entities
+### Button Entity
 
-- **Rotate Left Button**: Rotate the display counterclockwise
-- **Rotate Right Button**: Rotate the display clockwise
+- **Rotate Button**: Rotate the display 90° clockwise per click
+
+### Switch Entity
+
+- **Schedule Switch**: Turn the scheduler on/off
 
 ## Prerequisites
 
@@ -133,15 +130,24 @@ data:
 ### Rotation Control
 
 ```yaml
-# Rotate left
+# Rotate display 90° clockwise
 service: button.press
 target:
-  entity_id: button.ikea_obegraensad_rotate_left
+  entity_id: button.ikea_obegraensad_rotate
+```
 
-# Rotate right
-service: button.press
+### Scheduler Control
+
+```yaml
+# Turn on scheduler
+service: switch.turn_on
 target:
-  entity_id: button.ikea_obegraensad_rotate_right
+  entity_id: switch.ikea_obegraensad_schedule
+
+# Turn off scheduler
+service: switch.turn_off
+target:
+  entity_id: switch.ikea_obegraensad_schedule
 ```
 
 ### Automation Example
@@ -157,12 +163,15 @@ automation:
         target:
           entity_id: select.ikea_obegraensad_plugin
         data:
-          option: "Clock"
+          option: "1: Clock"
       - service: light.turn_on
         target:
           entity_id: light.ikea_obegraensad_led
         data:
           brightness: 100
+      - service: switch.turn_on
+        target:
+          entity_id: switch.ikea_obegraensad_schedule
 
   - alias: "LED Panel Night Mode"
     trigger:

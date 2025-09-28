@@ -5,7 +5,7 @@
     "button",
     "light", 
     "select",
-    "sensor"
+    "switch"
   ],
   "iot_class": "Local Push",
   "homeassistant": "2023.1.0"
