@@ -1,121 +1,26 @@
-"""Button platform for IKEA OBEGRÄNSAD LED Control."""
+"""Platform for IKEA OBEGRÄNSAD LED button integration."""
 from __future__ import annotations
 
-import logging
-from functools import cached_property
-
-from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from custom_components.ikea_obegraensad.const import DOMAIN
-from custom_components.ikea_obegraensad.coordinator import IkeaLedCoordinator
-
-_LOGGER = logging.getLogger(__name__)
+from .const import DOMAIN
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the IKEA OBEGRÄNSAD LED button platform."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    data = hass.data[DOMAIN][config_entry.entry_id]
+    factory = data["factory"]
+    coordinator = data["coordinator"]
     
-    buttons: list[ButtonEntity] = [
-        IkeaLedRotateLeftButton(coordinator, entry),
-        IkeaLedRotateRightButton(coordinator, entry),
-    ]
+    entities = factory.create_entities_for_platform(
+        Platform.BUTTON, coordinator, config_entry
+    )
     
-    async_add_entities(buttons)
-
-
-class IkeaLedBaseButton(CoordinatorEntity[IkeaLedCoordinator], ButtonEntity):
-    """Base class for IKEA OBEGRÄNSAD LED buttons."""
-
-    def __init__(
-        self,
-        coordinator: IkeaLedCoordinator,
-        entry: ConfigEntry,
-        button_type: str,
-        name: str,
-        icon: str | None = None,
-    ) -> None:
-        """Initialize the button."""
-        super().__init__(coordinator)
-        self._entry = entry
-        self._button_type = button_type
-        self._attr_unique_id = f"{entry.entry_id}_{button_type}"
-        self._attr_name = f"IKEA OBEGRÄNSAD {name}"
-        if icon:
-            self._attr_icon = icon
-
-    # Override available to resolve inheritance conflict
-    @cached_property
-    def available(self) -> bool:  # type: ignore[misc]
-        """Return if entity is available."""
-        return self.coordinator.last_update_success
-
-    @cached_property
-    def device_info(self) -> DeviceInfo | None:
-        """Return device information."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, self._entry.entry_id)},
-            name="IKEA OBEGRÄNSAD LED",
-            manufacturer="IKEA (Modified)",
-            model="OBEGRÄNSAD",
-            configuration_url=f"http://{self.coordinator.host}",
-        )
-
-
-class IkeaLedRotateLeftButton(IkeaLedBaseButton):
-    """Button to rotate display left."""
-
-    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry) -> None:
-        """Initialize the rotate left button."""
-        super().__init__(
-            coordinator,
-            entry,
-            "rotate_left",
-            "Rotate Left",
-            "mdi:rotate-left"
-        )
-
-    async def async_press(self) -> None:
-        """Handle the button press."""
-        try:
-            await self.hass.async_add_executor_job(
-                self.coordinator.set_rotation, "left"
-            )
-            # Gentle refresh to ensure UI updates
-            await self.coordinator.async_refresh_after_command()
-        except Exception as ex:
-            _LOGGER.error("Failed to rotate left: %s", ex)
-
-
-class IkeaLedRotateRightButton(IkeaLedBaseButton):
-    """Button to rotate display right."""
-
-    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry) -> None:
-        """Initialize the rotate right button."""
-        super().__init__(
-            coordinator,
-            entry,
-            "rotate_right",
-            "Rotate Right",
-            "mdi:rotate-right"
-        )
-
-    async def async_press(self) -> None:
-        """Handle the button press."""
-        try:
-            await self.hass.async_add_executor_job(
-                self.coordinator.set_rotation, "right"
-            )
-            # Gentle refresh to ensure UI updates
-            await self.coordinator.async_refresh_after_command()
-        except Exception as ex:
-            _LOGGER.error("Failed to rotate right: %s", ex)
+    async_add_entities(entities, True)
