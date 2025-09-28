@@ -32,7 +32,7 @@ async def async_setup_entry(
     async_add_entities(buttons)
 
 
-class IkeaLedBaseButton(CoordinatorEntity[IkeaLedCoordinator], ButtonEntity):
+class IkeaLedBaseButton(CoordinatorEntity[IkeaLedCoordinator], ButtonEntity):  # type: ignore[misc]
     """Base class for IKEA OBEGRÄNSAD LED buttons."""
 
     def __init__(

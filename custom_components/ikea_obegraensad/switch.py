@@ -33,7 +33,7 @@ async def async_setup_entry(
     async_add_entities(switches)
 
 
-class IkeaLedScheduleSwitch(CoordinatorEntity[IkeaLedCoordinator], SwitchEntity):
+class IkeaLedScheduleSwitch(CoordinatorEntity[IkeaLedCoordinator], SwitchEntity):  # type: ignore[misc]
     """Switch for controlling schedule status."""
 
     def __init__(
@@ -59,14 +59,14 @@ class IkeaLedScheduleSwitch(CoordinatorEntity[IkeaLedCoordinator], SwitchEntity)
             configuration_url=f"http://{self.coordinator.host}",
         )
 
-    @property
+    @cached_property  # type: ignore[misc]
     def is_on(self) -> bool:
         """Return true if schedule is active."""
         if not self.coordinator.data:
             return False
         return self.coordinator.data.get("scheduleActive", False)
 
-    @property
+    @cached_property  # type: ignore[misc]
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return extra state attributes."""
         if not self.coordinator.data:
