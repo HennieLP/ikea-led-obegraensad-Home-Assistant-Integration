@@ -66,3 +66,13 @@ class IkeaLedLight(IkeaLedBaseEntity, LightEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the light."""
         await self.execute_command(self.coordinator.set_brightness, 0)
+
+
+# Alias for registry compatibility
+MainLight = IkeaLedLight
+
+
+__all__ = [
+    "IkeaLedLight",
+    "MainLight",
+]

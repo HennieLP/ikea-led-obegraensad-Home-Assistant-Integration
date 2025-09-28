@@ -154,3 +154,116 @@ class IkeaLedScheduleStatusSensor(IkeaLedSensorBase):
             "schedule": self.get_data_value("schedule", []),
             "schedule_active": self.get_data_value("scheduleActive", False),
         }
+
+
+# Aliases for registry compatibility
+BrightnessSensor = IkeaLedBrightnessSensor
+
+
+class ColorSensor(IkeaLedSensorBase):
+    """Sensor for current color."""
+
+    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry, config: Any) -> None:
+        """Initialize the color sensor."""
+        super().__init__(coordinator, entry, "color_sensor", "Current Color", "mdi:palette")
+
+    @cached_property  # type: ignore[misc]
+    def native_value(self) -> str | None:
+        """Return the current color."""
+        return "RGB(255,255,255)"  # Placeholder
+
+
+class ColorModeSensor(IkeaLedSensorBase):
+    """Sensor for color mode."""
+
+    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry, config: Any) -> None:
+        """Initialize the color mode sensor."""
+        super().__init__(coordinator, entry, "color_mode_sensor", "Color Mode", "mdi:palette-advanced")
+
+    @cached_property  # type: ignore[misc]
+    def native_value(self) -> str | None:
+        """Return the current color mode."""
+        return "Single"  # Placeholder
+
+
+class EffectSensor(IkeaLedSensorBase):
+    """Sensor for current effect."""
+
+    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry, config: Any) -> None:
+        """Initialize the effect sensor."""
+        super().__init__(coordinator, entry, "effect_sensor", "Current Effect", "mdi:auto-fix")
+
+    @cached_property  # type: ignore[misc]
+    def native_value(self) -> str | None:
+        """Return the current effect."""
+        return "None"  # Placeholder
+
+
+class SpeedSensor(IkeaLedSensorBase):
+    """Sensor for effect speed."""
+
+    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry, config: Any) -> None:
+        """Initialize the speed sensor."""
+        super().__init__(coordinator, entry, "speed_sensor", "Effect Speed", "mdi:speedometer")
+
+    @cached_property  # type: ignore[misc]
+    def native_value(self) -> str | None:
+        """Return the current speed."""
+        return "Medium"  # Placeholder
+
+
+class PowerStateSensor(IkeaLedSensorBase):
+    """Sensor for power state."""
+
+    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry, config: Any) -> None:
+        """Initialize the power state sensor."""
+        super().__init__(coordinator, entry, "power_state_sensor", "Power State", "mdi:power")
+
+    @cached_property  # type: ignore[misc]
+    def native_value(self) -> str | None:
+        """Return the power state."""
+        brightness = self.get_data_value("brightness", 0)
+        return "On" if brightness > 0 else "Off"
+
+
+class ConnectionStateSensor(IkeaLedSensorBase):
+    """Sensor for connection state."""
+
+    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry, config: Any) -> None:
+        """Initialize the connection sensor."""
+        super().__init__(coordinator, entry, "connection_sensor", "Connection State", "mdi:connection")
+
+    @cached_property  # type: ignore[misc]
+    def native_value(self) -> str | None:
+        """Return the connection state."""
+        return "Connected" if self.coordinator.last_update_success else "Disconnected"
+
+
+class LastCommandSensor(IkeaLedSensorBase):
+    """Sensor for last command."""
+
+    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry, config: Any) -> None:
+        """Initialize the last command sensor."""
+        super().__init__(coordinator, entry, "last_command_sensor", "Last Command", "mdi:console-line")
+
+    @cached_property  # type: ignore[misc]
+    def native_value(self) -> str | None:
+        """Return the last command."""
+        return "None"  # Placeholder
+
+
+__all__ = [
+    "IkeaLedSensorBase",
+    "IkeaLedRotationSensor",
+    "IkeaLedActivePluginSensor", 
+    "IkeaLedBrightnessSensor",
+    "IkeaLedScheduleStatusSensor",
+    "BrightnessSensor",
+    "ColorSensor",
+    "ColorModeSensor", 
+    "EffectSensor",
+    "SpeedSensor",
+    "PowerStateSensor",
+    "ConnectionStateSensor",
+    "LastCommandSensor",
+]
