@@ -1,26 +1,23 @@
-"""Platform for IKEA OBEGRÄNSAD LED sensor integration."""
+"""Sensor platform for IKEA OBEGRÄNSAD LED Control."""
 from __future__ import annotations
 
+# This platform is kept empty as basic functionality doesn't require sensors
+# Sensors were removed to keep only the most basic functions:
+# - Light entity with dimming (0/255 brightness)
+# - Rotate button (90° per click)
+# - Plugin selector
+# - Schedule toggle switch
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
-from .const import DOMAIN
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the IKEA OBEGRÄNSAD LED sensor platform."""
-    data = hass.data[DOMAIN][config_entry.entry_id]
-    factory = data["factory"]
-    coordinator = data["coordinator"]
-    
-    entities = factory.create_entities_for_platform(
-        Platform.SENSOR, coordinator, config_entry
-    )
-    
-    async_add_entities(entities, True)
+    # No sensors in basic functionality
+    pass
