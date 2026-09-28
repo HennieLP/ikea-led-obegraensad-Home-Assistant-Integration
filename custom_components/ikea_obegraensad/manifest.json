@@ -1,7 +1,7 @@
 {
   "domain": "ikea_obegraensad",
   "name": "IKEA OBEGRÄNSAD LED Control",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "documentation": "https://github.com/HennieLP/ikea-led-obegraensad-python-control",
   "issue_tracker": "https://github.com/HennieLP/ikea-led-obegraensad-python-control/issues",
   "requirements": [

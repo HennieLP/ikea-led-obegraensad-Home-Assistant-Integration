@@ -10,6 +10,7 @@ from datetime import timedelta
 from typing import Any, Dict, Optional
 
 import websockets
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -21,7 +22,9 @@ _LOGGER = logging.getLogger(__name__)
 class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Class to manage fetching data from the IKEA OBEGRÄNSAD LED device."""
 
-    def __init__(self, hass: HomeAssistant, host: str) -> None:
+    def __init__(
+        self, hass: HomeAssistant, host: str, config_entry: ConfigEntry | None = None
+    ) -> None:
         """Initialize."""
         self.host = host
         self.base_url = f"http://{host}/api"
@@ -40,10 +43,13 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_state = {}
         self._ws_thread = None
         self._monitor_thread = None
-        
+        # Set on shutdown so the background threads exit instead of leaking across reloads
+        self._stop_event = threading.Event()
+
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=config_entry,
             name=DOMAIN,
             update_interval=timedelta(seconds=60),  # WebSocket provides real-time updates
         )
@@ -65,7 +71,7 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _start_monitoring(self):
         """Start the state monitoring in a background thread."""
         def monitor_changes():
-            while True:
+            while not self._stop_event.is_set():
                 try:
                     with self._ws_lock:
                         current_state = dict(self._state)
@@ -96,17 +102,20 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _websocket_loop(self):
         """Main WebSocket connection loop."""
-        while True:
+        while not self._stop_event.is_set():
             try:
                 async with websockets.connect(self.ws_url) as websocket:
                     self.websocket = websocket
                     self.ws_connected = True
                     _LOGGER.debug("WebSocket connected to %s", self.ws_url)
-                    
-                    while True:
+
+                    while not self._stop_event.is_set():
                         try:
-                            message = await websocket.recv()
+                            # Time out periodically so a shutdown is noticed
+                            message = await asyncio.wait_for(websocket.recv(), timeout=1)
                             await self._handle_ws_message(message)
+                        except asyncio.TimeoutError:
+                            continue
                         except websockets.ConnectionClosed:
                             break
             except Exception as ex:
@@ -116,7 +125,8 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.websocket = None
             
             # Wait before reconnecting
-            await asyncio.sleep(5)
+            if not self._stop_event.is_set():
+                await asyncio.sleep(5)
 
     async def _handle_ws_message(self, message: str):
         """Handle incoming WebSocket messages."""
@@ -263,5 +273,7 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_shutdown(self) -> None:
         """Shutdown coordinator."""
+        self._stop_event.set()
         self.ws_connected = False
+        await super().async_shutdown()
         _LOGGER.info("Shutting down IKEA LED coordinator")

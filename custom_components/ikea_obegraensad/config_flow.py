@@ -6,21 +6,36 @@ import logging
 from typing import Any
 import voluptuous as vol
 
+import aiohttp
+
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.data_entry_flow import AbortFlow, FlowResult
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-STEP_USER_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_HOST, description={"suggested_value": "192.168.5.60"}): str,
-    }
-)
+
+def _host_schema(default: str | None = None) -> vol.Schema:
+    """Build the host form, prefilled with the current host when reconfiguring."""
+    return vol.Schema(
+        {
+            vol.Required(CONF_HOST, description={"suggested_value": default}): str,
+        }
+    )
+
+
+def _normalize_host(host: str) -> str:
+    """Accept pasted URLs like 'http://192.168.1.5/' and reduce them to the host."""
+    host = host.strip()
+    for prefix in ("http://", "https://"):
+        if host.lower().startswith(prefix):
+            host = host[len(prefix):]
+    return host.split("/", 1)[0]
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -33,21 +48,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
-        
+
         if user_input is not None:
-            host = user_input[CONF_HOST]
-            
-            # Test connection
-            try:
-                await self._test_connection(host)
-            except Exception as e:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
-                errors["base"] = e
-            else:
+            host = _normalize_host(user_input[CONF_HOST])
+
+            errors = await self._async_validate_host(host)
+            if not errors:
                 # Check if already configured
                 await self.async_set_unique_id(host)
                 self._abort_if_unique_id_configured()
-                
+
                 return self.async_create_entry(
                     title=f"IKEA OBEGRÄNSAD LED ({host})",
                     data={CONF_HOST: host},
@@ -55,52 +65,77 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=STEP_USER_DATA_SCHEMA,
+            data_schema=_host_schema(),
             errors=errors,
         )
 
-    async def _test_connection(self, host: str) -> bool:
-        """Test if we can connect to the device."""
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Change the host of an existing entry, e.g. after the device got a new IP.
+
+        Entities are keyed on the entry id, so they survive the change.
+        """
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            host = _normalize_host(user_input[CONF_HOST])
+
+            errors = await self._async_validate_host(host)
+            if not errors:
+                await self.async_set_unique_id(host)
+                self._abort_if_unique_id_mismatch_other_entries(entry)
+                return self.async_update_reload_and_abort(
+                    entry,
+                    unique_id=host,
+                    title=f"IKEA OBEGRÄNSAD LED ({host})",
+                    data_updates={CONF_HOST: host},
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=_host_schema(entry.data.get(CONF_HOST)),
+            errors=errors,
+        )
+
+    def _abort_if_unique_id_mismatch_other_entries(
+        self, entry: config_entries.ConfigEntry
+    ) -> None:
+        """Abort if another entry already uses the host we are moving to."""
+        for other in self._async_current_entries(include_ignore=False):
+            if other.entry_id != entry.entry_id and other.unique_id == self.unique_id:
+                raise AbortFlow("already_configured")
+
+    async def _async_validate_host(self, host: str) -> dict[str, str]:
+        """Return form errors for the host, empty if the device answered."""
         try:
-            # Import the coordinator to test connection
-            from .coordinator import IkeaLedCoordinator
-            
-            # Create a temporary coordinator for testing
-            test_coordinator = IkeaLedCoordinator(self.hass, host)
-            
-            # Give it time to establish WebSocket connection
-            await asyncio.sleep(3)
-            
-            # Try to get initial data
-            await test_coordinator.async_config_entry_first_refresh()
-            
-            # Check if we got valid data
-            if not test_coordinator.data or not isinstance(test_coordinator.data, dict):
-                _LOGGER.warning("Device at %s returned invalid data: %s", host, test_coordinator.data)
-                raise CannotConnect
-            
-            # Verify we have expected fields in the response
-            required_fields = ["brightness"]  # Minimum required field
-            if not any(field in test_coordinator.data for field in required_fields):
-                _LOGGER.warning("Device at %s returned unexpected data format: %s", host, test_coordinator.data)
-                raise CannotConnect
-                
-            _LOGGER.info("Successfully connected to IKEA LED device at %s", host)
-            
-            # Clean up test coordinator
-            await test_coordinator.async_shutdown()
-            
-            return True
-            
-        except ConnectionError as ex:
-            _LOGGER.error("Network connection failed for device at %s: %s", host, ex)
-            raise CannotConnect from ex
-        except TimeoutError as ex:
-            _LOGGER.error("Connection timeout for device at %s: %s", host, ex)
-            raise CannotConnect from ex
-        except Exception as ex:
-            _LOGGER.exception("Error connecting to IKEA LED device at %s", host)
-            raise CannotConnect from ex
+            await _test_connection(self.hass, host)
+        except CannotConnect:
+            return {"base": "cannot_connect"}
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Unexpected exception")
+            return {"base": "unknown"}
+        return {}
+
+
+async def _test_connection(hass: HomeAssistant, host: str) -> None:
+    """Check the device answers its status endpoint with the expected fields."""
+    session = async_get_clientsession(hass)
+    try:
+        async with asyncio.timeout(10):
+            response = await session.get(f"http://{host}/api/info")
+            response.raise_for_status()
+            data = await response.json(content_type=None)
+    except (aiohttp.ClientError, TimeoutError, ValueError) as ex:
+        _LOGGER.warning("Could not reach IKEA LED device at %s: %s", host, ex)
+        raise CannotConnect from ex
+
+    if not isinstance(data, dict) or "brightness" not in data:
+        _LOGGER.warning("Device at %s returned unexpected data: %s", host, data)
+        raise CannotConnect
+
+    _LOGGER.info("Successfully connected to IKEA LED device at %s", host)
 
 
 class CannotConnect(HomeAssistantError):
