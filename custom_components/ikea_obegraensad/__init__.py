@@ -21,12 +21,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up IKEA OBEGRÄNSAD LED Control from a config entry."""
     host = entry.data[CONF_HOST]
     
-    coordinator = IkeaLedCoordinator(hass, host)
+    coordinator = IkeaLedCoordinator(hass, host, entry)
     
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception as ex:
         _LOGGER.exception("Error setting up IKEA OBEGRÄNSAD LED device")
+        await coordinator.async_shutdown()
         raise ConfigEntryNotReady from ex
 
     hass.data.setdefault(DOMAIN, {})

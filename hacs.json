@@ -8,5 +8,5 @@
     "sensor"
   ],
   "iot_class": "Local Push",
-  "homeassistant": "2023.1.0"
+  "homeassistant": "2024.11.0"
 }
