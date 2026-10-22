@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from functools import cached_property
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
@@ -26,14 +26,13 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]
     
     buttons = [
-        IkeaLedRotateLeftButton(coordinator, entry),
-        IkeaLedRotateRightButton(coordinator, entry),
+        IkeaLedRotateButton(coordinator, entry),
     ]
     
     async_add_entities(buttons)
 
 
-class IkeaLedBaseButton(CoordinatorEntity[IkeaLedCoordinator], ButtonEntity):
+class IkeaLedBaseButton(CoordinatorEntity[IkeaLedCoordinator], ButtonEntity):  # type: ignore[misc]
     """Base class for IKEA OBEGRÄNSAD LED buttons."""
 
     def __init__(
@@ -53,7 +52,7 @@ class IkeaLedBaseButton(CoordinatorEntity[IkeaLedCoordinator], ButtonEntity):
         if icon:
             self._attr_icon = icon
 
-    @property
+    @cached_property  # type: ignore[misc]
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         return DeviceInfo(
@@ -65,41 +64,16 @@ class IkeaLedBaseButton(CoordinatorEntity[IkeaLedCoordinator], ButtonEntity):
         )
 
 
-class IkeaLedRotateLeftButton(IkeaLedBaseButton):
-    """Button to rotate display left."""
+class IkeaLedRotateButton(IkeaLedBaseButton):
+    """Button to rotate display by 90 degrees."""
 
     def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry) -> None:
-        """Initialize the rotate left button."""
+        """Initialize the rotate button."""
         super().__init__(
             coordinator,
             entry,
-            "rotate_left",
-            "Rotate Left",
-            "mdi:rotate-left"
-        )
-
-    async def async_press(self) -> None:
-        """Handle the button press."""
-        try:
-            await self.hass.async_add_executor_job(
-                self.coordinator.set_rotation, "left"
-            )
-            # Gentle refresh to ensure UI updates
-            await self.coordinator.async_refresh_after_command()
-        except Exception as ex:
-            _LOGGER.error("Failed to rotate left: %s", ex)
-
-
-class IkeaLedRotateRightButton(IkeaLedBaseButton):
-    """Button to rotate display right."""
-
-    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry) -> None:
-        """Initialize the rotate right button."""
-        super().__init__(
-            coordinator,
-            entry,
-            "rotate_right",
-            "Rotate Right",
+            "rotate",
+            "Rotate 90°",
             "mdi:rotate-right"
         )
 
@@ -112,4 +86,4 @@ class IkeaLedRotateRightButton(IkeaLedBaseButton):
             # Gentle refresh to ensure UI updates
             await self.coordinator.async_refresh_after_command()
         except Exception as ex:
-            _LOGGER.error("Failed to rotate right: %s", ex)
+            _LOGGER.error("Failed to rotate display: %s", ex)

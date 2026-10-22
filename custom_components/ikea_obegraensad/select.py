@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from functools import cached_property
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
@@ -28,7 +28,7 @@ async def async_setup_entry(
     async_add_entities([IkeaLedPluginSelect(coordinator, entry)])
 
 
-class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
+class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):  # type: ignore[misc]
     """Representation of an IKEA OBEGRÄNSAD LED plugin selector."""
 
     def __init__(
@@ -43,7 +43,7 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
         self._attr_name = "IKEA OBEGRÄNSAD Plugin"
         self._attr_icon = "mdi:format-list-bulleted"
 
-    @property
+    @cached_property  # type: ignore[misc]
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         return DeviceInfo(
@@ -54,7 +54,7 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
             configuration_url=f"http://{self.coordinator.host}",
         )
 
-    @property
+    @cached_property  # type: ignore[misc]
     def options(self) -> list[str]:
         """Return a list of selectable options."""
         if not self.coordinator.data or "plugins" not in self.coordinator.data:
@@ -65,7 +65,7 @@ class IkeaLedPluginSelect(CoordinatorEntity[IkeaLedCoordinator], SelectEntity):
             for plugin in self.coordinator.data["plugins"]
         ]
 
-    @property
+    @cached_property  # type: ignore[misc]
     def current_option(self) -> str | None:
         """Return the current selected option."""
         if not self.coordinator.data:
