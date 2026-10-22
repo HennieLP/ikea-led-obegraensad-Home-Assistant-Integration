@@ -18,7 +18,7 @@ The IKEA OBEGRÄNSAD LED Control integration enables seamless integration of mod
 
 - **Real-time Control**: Instant brightness adjustments and plugin switching
 - **WebSocket Integration**: Live updates without polling delays
-- **Multiple Entity Types**: Light, sensors, selects, and buttons
+- **Multiple Entity Types**: Light, select, button and switch
 - **Device Management**: Plugin selection and rotation control
 - **Schedule Monitoring**: Track active schedules and their status
 - **Local Communication**: No cloud dependency, works entirely on your local network
@@ -30,7 +30,6 @@ This integration creates the following entities in Home Assistant:
 ### Light Entity
 
 - **IKEA OBEGRÄNSAD LED Light**: Main light control with brightness adjustment
-  - Supports transitions
   - Brightness control (0-255)
   - On/Off state management
   - Shows plugin, rotation, and schedule status as attributes
@@ -45,11 +44,11 @@ This integration creates the following entities in Home Assistant:
 
 ### Switch Entity
 
-- **Schedule Switch**: Turn the scheduler on/off
+- **Schedule Switch**: Start or stop the schedule stored on the device (set one up in the device's web interface first)
 
 ## Prerequisites
 
-- Home Assistant 2023.1.0 or later
+- Home Assistant 2024.11.0 or later
 - A modified IKEA OBEGRÄNSAD LED panel with network connectivity
 - The device must be accessible on your local network
 - The device should have a web API endpoint available (typically on port 80)
@@ -224,13 +223,13 @@ The device should respond with JSON data containing:
 
 ### Entity Not Updating
 
-1. **Sensors not reflecting changes**:
+1. **Entities not reflecting changes**:
    - Check WebSocket connection status in logs
    - Verify device is sending proper JSON format
    - Look for network connectivity issues
 
 2. **Controls not working**:
-   - Ensure device API accepts POST requests
+   - Brightness and plugin changes fall back to HTTP when the WebSocket is down; rotation needs the WebSocket
    - Check device logs for API errors
    - Verify correct JSON payload format
 

@@ -4,290 +4,197 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import threading
-import time
 from datetime import timedelta
-from typing import Any, Optional
+from typing import Any
 
-import websockets
+import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from custom_components.ikea_obegraensad.const import DOMAIN, DEFAULT_UPDATE_INTERVAL
+from .const import DEFAULT_UPDATE_INTERVAL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+# Keys of the device's info message that the entities use
+STATE_KEYS = ("brightness", "rotation", "plugin", "scheduleActive", "schedule", "plugins")
+
+HTTP_TIMEOUT = aiohttp.ClientTimeout(total=10)
+WS_HEARTBEAT = 30  # seconds; also detects a device that dropped off the network
+WS_RECONNECT_DELAY = 5  # seconds
+
 
 class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Class to manage fetching data from the IKEA OBEGRÄNSAD LED device."""
+    """Keep the device state in sync over its WebSocket, with HTTP as a fallback.
 
-    def __init__(
-        self, hass: HomeAssistant, host: str, config_entry: ConfigEntry | None = None
-    ) -> None:
+    Everything runs on Home Assistant's own event loop: the WebSocket is an
+    aiohttp connection from HA's shared session, read by a background task and
+    written to directly by the entities. (The previous version ran the socket in
+    its own thread and event loop and sent commands from yet another loop, which
+    asyncio does not support and which broke control on some installs.)
+    """
+
+    config_entry: ConfigEntry
+
+    def __init__(self, hass: HomeAssistant, host: str, config_entry: ConfigEntry) -> None:
         """Initialize."""
-        self.host = host
-        self.base_url = f"http://{host}/api"
-        self.ws_url = f"ws://{host}/ws"
-        self.websocket: Any = None
-        self.ws_connected = False
-        self._state: dict[str, Any] = {
-            "brightness": 0,
-            "rotation": 0,
-            "plugin": None,
-            "scheduleActive": False,
-            "schedule": [],
-            "plugins": []
-        }
-        self._ws_lock = threading.Lock()
-        self._last_state: dict[str, Any] = {}
-        self._ws_thread = None
-        self._monitor_thread = None
-        # Set on shutdown so the background threads exit instead of leaking across reloads
-        self._stop_event = threading.Event()
-
         super().__init__(
             hass,
             _LOGGER,
             config_entry=config_entry,
             name=DOMAIN,
-            update_interval=timedelta(seconds=DEFAULT_UPDATE_INTERVAL),  # WebSocket provides real-time updates
+            # Only a fallback; the WebSocket pushes every change
+            update_interval=timedelta(seconds=DEFAULT_UPDATE_INTERVAL),
         )
-        
-        # Start WebSocket and monitoring after coordinator is initialized
-        self._start_websocket()
-        self._start_monitoring()
+        self.host = host
+        self.base_url = f"http://{host}/api"
+        self.ws_url = f"http://{host}/ws"
+        self._session = async_get_clientsession(hass)
+        self._ws: aiohttp.ClientWebSocketResponse | None = None
+        self._ws_task: asyncio.Task[None] | None = None
 
-    def _start_websocket(self):
-        """Start the WebSocket connection in a background thread."""
-        def run_async_loop():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(self._websocket_loop())
-        
-        self._ws_thread = threading.Thread(target=run_async_loop, daemon=True)
-        self._ws_thread.start()
-
-    def _start_monitoring(self):
-        """Start the state monitoring in a background thread."""
-        def monitor_changes():
-            while not self._stop_event.is_set():
-                try:
-                    with self._ws_lock:
-                        current_state = dict(self._state)
-                    
-                    # Check for changes and trigger coordinator updates
-                    changes_detected = False
-                    for key, value in current_state.items():
-                        if key not in self._last_state or self._last_state[key] != value:
-                            if key in self._last_state:  # Don't log initial values
-                                _LOGGER.debug("Change detected: %s changed from %s to %s", 
-                                             key, self._last_state[key], value)
-                                changes_detected = True
-                            self._last_state[key] = value
-                    
-                    # Notify coordinator of changes
-                    if changes_detected:
-                        self.hass.loop.call_soon_threadsafe(
-                            lambda: self.hass.async_create_task(self._on_websocket_change())
-                        )
-                    
-                    time.sleep(0.5)  # Check every 500ms
-                except Exception as ex:
-                    _LOGGER.debug("Error in monitoring loop: %s", ex)
-                    time.sleep(1)
-        
-        self._monitor_thread = threading.Thread(target=monitor_changes, daemon=True)
-        self._monitor_thread.start()
-
-    async def _websocket_loop(self):
-        """Main WebSocket connection loop."""
-        while not self._stop_event.is_set():
-            try:
-                async with websockets.connect(self.ws_url) as websocket:
-                    self.websocket = websocket
-                    self.ws_connected = True
-                    _LOGGER.debug("WebSocket connected to %s", self.ws_url)
-
-                    while not self._stop_event.is_set():
-                        try:
-                            # Time out periodically so a shutdown is noticed
-                            message = await asyncio.wait_for(websocket.recv(), timeout=1)
-                            await self._handle_ws_message(message)
-                        except asyncio.TimeoutError:
-                            continue
-                        except websockets.ConnectionClosed:
-                            break
-            except Exception as ex:
-                _LOGGER.debug("WebSocket connection error: %s", ex)
-            finally:
-                self.ws_connected = False
-                self.websocket = None
-            
-            # Wait before reconnecting
-            if not self._stop_event.is_set():
-                await asyncio.sleep(5)
-
-    async def _handle_ws_message(self, message: str | bytes) -> None:
-        """Handle incoming WebSocket messages."""
-        try:
-            # Convert message to string for JSON parsing
-            if isinstance(message, str):
-                data = json.loads(message)
-            else:
-                # Handle bytes or other types by converting to string
-                data = json.loads(str(message, 'utf-8') if isinstance(message, bytes) else str(message))
-            with self._ws_lock:
-                if "brightness" in data:
-                    self._state["brightness"] = data["brightness"]
-                if "rotation" in data:
-                    self._state["rotation"] = data["rotation"]
-                if "plugin" in data:
-                    self._state["plugin"] = data["plugin"]
-                if "scheduleActive" in data:
-                    self._state["scheduleActive"] = data["scheduleActive"]
-                if "schedule" in data:
-                    self._state["schedule"] = data["schedule"]
-                if "plugins" in data:
-                    self._state["plugins"] = data["plugins"]
-        except json.JSONDecodeError as ex:
-            _LOGGER.warning("Error parsing WebSocket message: %s", ex)
-
-    async def _send_ws_message(self, data: dict[str, Any]) -> None:
-        """Send a message through the WebSocket connection."""
-        if not self.ws_connected or not self.websocket:
-            raise ConnectionError("WebSocket connection is not available")
-        
-        try:
-            await self.websocket.send(json.dumps(data))
-        except websockets.ConnectionClosed:
-            _LOGGER.debug("WebSocket connection closed while sending message")
-            self.ws_connected = False
-            raise
-        except Exception as ex:
-            _LOGGER.warning("Error sending WebSocket message: %s", ex)
-            raise
-
-    def _send_ws_command(self, data: dict[str, Any]) -> None:
-        """Helper method to send WebSocket commands."""
-        if not self.ws_connected:
-            raise ConnectionError("WebSocket connection is not available")
-        
-        # Create a new event loop for this thread
-        loop = None
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(self._send_ws_message(data))
-        finally:
-            if loop:
-                loop.close()
-
-    async def _on_websocket_change(self) -> None:
-        """Handle WebSocket state changes."""
-        try:
-            # Update the coordinator's data with current state
-            with self._ws_lock:
-                current_data = dict(self._state)
-            
-            self.data = current_data
-            self.async_update_listeners()
-            _LOGGER.debug("WebSocket change triggered HA update")
-                
-        except Exception as ex:
-            _LOGGER.debug("Failed to handle WebSocket change: %s", ex)
+    @property
+    def ws_connected(self) -> bool:
+        """Return whether the WebSocket is currently open."""
+        return self._ws is not None and not self._ws.closed
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Update data via WebSocket state."""
+        """Fetch the full state over HTTP (first refresh and fallback polling)."""
         try:
-            # Return current state from WebSocket
-            with self._ws_lock:
-                current_state = dict(self._state)
-            
-            # Log WebSocket connection status
-            ws_status = "connected" if self.ws_connected else "disconnected"
-            _LOGGER.debug("Data update completed, WebSocket: %s", ws_status)
-            
-            return current_state
-            
-        except Exception as ex:
-            _LOGGER.exception("Error fetching data from IKEA LED device")
+            async with self._session.get(
+                f"{self.base_url}/info", timeout=HTTP_TIMEOUT
+            ) as response:
+                response.raise_for_status()
+                info = await response.json(content_type=None)
+        except (aiohttp.ClientError, TimeoutError, ValueError) as ex:
             raise UpdateFailed(f"Error communicating with device at {self.host}: {ex}") from ex
 
-    # LED Control Methods
-    def set_brightness(self, brightness: int) -> None:
+        if not isinstance(info, dict):
+            raise UpdateFailed(f"Unexpected response from device at {self.host}: {info!r}")
+        return {**(self.data or {}), **_pick_state(info)}
+
+    # WebSocket
+
+    def async_start_websocket(self) -> None:
+        """Start the background task that keeps the WebSocket open."""
+        if self._ws_task is None:
+            self._ws_task = self.config_entry.async_create_background_task(
+                self.hass, self._websocket_loop(), f"{DOMAIN} websocket {self.host}"
+            )
+
+    async def _websocket_loop(self) -> None:
+        """Connect, read messages until the socket drops, then reconnect."""
+        while True:
+            try:
+                async with self._session.ws_connect(self.ws_url, heartbeat=WS_HEARTBEAT) as ws:
+                    self._ws = ws
+                    _LOGGER.debug("WebSocket connected to %s", self.ws_url)
+                    async for message in ws:
+                        if message.type in (aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.BINARY):
+                            self._handle_ws_message(message.data)
+                        elif message.type == aiohttp.WSMsgType.ERROR:
+                            _LOGGER.debug("WebSocket error: %s", ws.exception())
+                            break
+            except (aiohttp.ClientError, TimeoutError) as ex:
+                _LOGGER.debug("WebSocket connection to %s failed: %s", self.ws_url, ex)
+            except Exception:  # noqa: BLE001 - keep reconnecting whatever went wrong
+                _LOGGER.exception("Unexpected error in the WebSocket loop for %s", self.ws_url)
+            finally:
+                self._ws = None
+
+            _LOGGER.debug("WebSocket to %s closed, reconnecting in %ss", self.ws_url, WS_RECONNECT_DELAY)
+            await asyncio.sleep(WS_RECONNECT_DELAY)
+
+    def _handle_ws_message(self, message: str | bytes) -> None:
+        """Merge the state fields of an incoming message into the coordinator data."""
+        try:
+            data = json.loads(message)
+        except ValueError:
+            # The device can also send non-JSON frames; they carry no state
+            _LOGGER.debug("Ignoring non-JSON WebSocket message")
+            return
+        if not isinstance(data, dict):
+            return
+
+        updates = _pick_state(data)
+        if not updates:
+            return
+        new_data = {**(self.data or {}), **updates}
+        if new_data != self.data:
+            self.async_set_updated_data(new_data)
+
+    async def _async_send_ws(self, payload: dict[str, Any]) -> bool:
+        """Send a command over the WebSocket; return False when it is not open."""
+        ws = self._ws
+        if ws is None or ws.closed:
+            return False
+        try:
+            await ws.send_json(payload)
+        except (aiohttp.ClientError, ConnectionError) as ex:
+            _LOGGER.debug("Sending %s over the WebSocket failed: %s", payload, ex)
+            return False
+        return True
+
+    async def _async_http(self, method: str, path: str, params: dict[str, Any] | None = None) -> None:
+        """Call one of the device's HTTP endpoints."""
+        try:
+            async with self._session.request(
+                method, f"{self.base_url}/{path}", params=params, timeout=HTTP_TIMEOUT
+            ) as response:
+                if response.status == 404 and path.startswith("schedule/"):
+                    raise HomeAssistantError(
+                        "The device has no schedule; set one up in its web interface first"
+                    )
+                response.raise_for_status()
+        except (aiohttp.ClientError, TimeoutError) as ex:
+            raise HomeAssistantError(f"Could not reach the device at {self.host}: {ex}") from ex
+
+    # LED control
+
+    async def async_set_brightness(self, brightness: int) -> None:
         """Set the brightness value (0-255)."""
-        if not (0 <= brightness <= 255):
+        if not 0 <= brightness <= 255:
             raise ValueError("Brightness must be between 0 and 255")
-        
-        self._send_ws_command({
-            "event": "brightness",
-            "brightness": brightness
-        })
+        if not await self._async_send_ws({"event": "brightness", "brightness": brightness}):
+            await self._async_http("PATCH", "brightness", {"value": brightness})
+            await self.async_request_refresh()
 
-    def set_plugin(self, plugin_id: int) -> None:
+    async def async_set_plugin(self, plugin_id: int) -> None:
         """Set the active plugin."""
-        self._send_ws_command({
-            "event": "plugin",
-            "plugin": plugin_id
-        })
+        if not await self._async_send_ws({"event": "plugin", "plugin": plugin_id}):
+            await self._async_http("PATCH", "plugin", {"id": plugin_id})
+            await self.async_request_refresh()
 
-    def set_rotation(self, direction: str) -> None:
-        """Rotate the display (direction should be 'left' or 'right')."""
-        if direction not in ['left', 'right']:
+    async def async_rotate(self, direction: str = "right") -> None:
+        """Rotate the display by 90° ('left' or 'right')."""
+        if direction not in ("left", "right"):
             raise ValueError("Direction must be either 'left' or 'right'")
-        
-        self._send_ws_command({
-            "event": "rotate",
-            "direction": direction
-        })
+        # The firmware only offers rotation over the WebSocket
+        if not await self._async_send_ws({"event": "rotate", "direction": direction}):
+            raise HomeAssistantError(
+                f"Cannot rotate: the WebSocket to {self.host} is not connected"
+            )
 
-    def set_schedule_state(self, active: bool) -> None:
-        """Set the schedule active state."""
-        self._send_ws_command({
-            "event": "scheduleActive",
-            "scheduleActive": active
-        })
-
-    # State Access Methods
-    def get_brightness(self) -> int:
-        """Get the current brightness value (0-255)."""
-        with self._ws_lock:
-            return self._state["brightness"]
-
-    def get_rotation(self) -> int:
-        """Get the current rotation value (0-3)."""
-        with self._ws_lock:
-            return self._state["rotation"]
-
-    def get_active_plugin(self) -> Optional[int]:
-        """Get the currently active plugin ID."""
-        with self._ws_lock:
-            return self._state["plugin"]
-
-    def get_available_plugins(self) -> list[Any]:
-        """Get list of available plugins."""
-        with self._ws_lock:
-            return self._state["plugins"]
-
-    def get_schedule_state(self) -> bool:
-        """Get whether the schedule is active."""
-        with self._ws_lock:
-            return self._state["scheduleActive"]
-
-    def get_schedule(self) -> list[Any]:
-        """Get the current schedule."""
-        with self._ws_lock:
-            return self._state["schedule"]
-
-    async def async_refresh_after_command(self) -> None:
-        """Refresh data after sending a command - WebSocket will handle updates automatically."""
-        # Small delay to allow WebSocket to receive the update
-        await asyncio.sleep(0.1)
+    async def async_set_schedule_active(self, active: bool) -> None:
+        """Start or stop the schedule stored on the device."""
+        # The firmware only offers this over HTTP
+        await self._async_http("GET", "schedule/start" if active else "schedule/stop")
+        if not self.ws_connected:
+            await self.async_request_refresh()
 
     async def async_shutdown(self) -> None:
-        """Shutdown coordinator."""
-        self._stop_event.set()
-        self.ws_connected = False
+        """Stop the WebSocket task and close the connection."""
+        if self._ws_task is not None:
+            self._ws_task.cancel()
+            self._ws_task = None
+        if self._ws is not None:
+            await self._ws.close()
+            self._ws = None
         await super().async_shutdown()
-        _LOGGER.info("Shutting down IKEA LED coordinator")
+
+
+def _pick_state(data: dict[str, Any]) -> dict[str, Any]:
+    """Return only the state fields of a device message."""
+    return {key: data[key] for key in STATE_KEYS if key in data}
