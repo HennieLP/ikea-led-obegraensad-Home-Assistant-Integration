@@ -1,0 +1,30 @@
+name: Release
+
+# Pushing a version tag (e.g. `git tag v1.2.3; git push origin v1.2.3`) publishes a GitHub release.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package the integration
+        run: |
+          cd custom_components/ikea_obegraensad
+          zip -r "$GITHUB_WORKSPACE/ikea_obegraensad.zip" . -x '__pycache__/*'
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          # Tags with a suffix such as v1.0.0-beta are published as pre-releases
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: ikea_obegraensad.zip
